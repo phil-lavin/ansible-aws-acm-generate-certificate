@@ -1,4 +1,4 @@
-Ansible playbook to generate or get a certificate.
+Ansible playbook to generate or get a certificate from AWS Amazon Certificate Manager (ACM)
 
 ## Requirements
 
