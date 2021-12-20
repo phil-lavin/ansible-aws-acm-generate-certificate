@@ -1,17 +1,22 @@
 # Requires community.aws (ansible-galaxy collection install community.aws)
-# You must set ec2_region variable to the region you wish to use (e.g. eu-west-1)
-# You must set ec2_domain_name to the domain you wish to use for validation (e.g. yoursite.com)
+# You must set certificate_region variable to the region you wish to use (e.g. eu-west-1)
+# You must set validation_domain to the domain you wish to use for validation (e.g. yoursite.com)
 # You must set certificate_domain to the domain you wish to issue a certificate for (e.g. api.yoursite.com)
 
 - include: merge-vars.yml
 
 - name: Get ACM Certificate
   debug:
-    msg: "Getting/Creating ACM Certificate"
+    msg: "Getting/Creating ACM Certificate for {{ certificate_domain }}"
+
+- name: Unset(ish) facts, in case this is the second time we've run this
+  set_fact:
+    certificate_arn: ""
+    certificate_status: ""
 
 # If we already have an issued certificate, find it and set it into certificate_arn fact
 - name: Get all ACM certificates
-  shell: aws acm list-certificates --region {{ec2_region}} --certificate-statuses ISSUED
+  shell: aws acm list-certificates --region {{certificate_region}} --certificate-statuses ISSUED
   register: output
 
 - set_fact:
@@ -26,40 +31,40 @@
 
 # If we already have a pending validation certificate, find it and set it into certificate_arn fact
 - name: Get all ACM certificates
-  shell: aws acm list-certificates --region {{ec2_region}} --certificate-statuses PENDING_VALIDATION
+  shell: aws acm list-certificates --region {{certificate_region}} --certificate-statuses PENDING_VALIDATION
   register: output
-  when: certificate_arn is not defined
+  when: certificate_arn is not defined or certificate_arn == ""
 
 - set_fact:
     certificate_list: "{{ (output.stdout|from_json).CertificateSummaryList|to_json }}"
-  when: certificate_arn is not defined
+  when: certificate_arn is not defined or certificate_arn == ""
 
 - name: Iterate through the certificate list
   set_fact:
     certificate_arn: "{{ item.CertificateArn }}"
     certificate_status: "PENDING_VALIDATION"
-  when: (certificate_arn is not defined) and (item.DomainName == certificate_domain)
+  when: (certificate_arn is not defined or certificate_arn == "") and (item.DomainName == certificate_domain)
   with_items: "{{certificate_list}}"
 
 # When we don't have a certificate at all, get a new one
 - name: send ACM request if needed
   shell: |
     aws acm request-certificate \
-    --region {{ec2_region}} \
+    --region {{certificate_region}} \
     --validation-method DNS \
     --domain-name "{{ certificate_domain }}" \
-    --domain-validation-options DomainName="{{ certificate_domain }}",ValidationDomain="{{ ec2_domain_name }}"
+    --domain-validation-options DomainName="{{ certificate_domain }}",ValidationDomain="{{ validation_domain }}"
   register: acm
-  when: certificate_arn is not defined
+  when: certificate_arn is not defined or certificate_arn == ""
 
 - set_fact:
     certificate_arn: "{{ (acm.stdout|from_json).CertificateArn }}"
     certificate_status: "PENDING_VALIDATION"
-  when: certificate_arn is not defined
+  when: certificate_arn is not defined or certificate_arn == ""
 
 # If our certificate is PENDING_VALIDATION, get and create the DNS record
 - name: Wait for certificate DNS record to be made available
-  command: aws acm describe-certificate --certificate-arn {{ certificate_arn }} --region {{ ec2_region }}
+  command: aws acm describe-certificate --certificate-arn {{ certificate_arn }} --region {{ certificate_region }}
   register: result
   retries: 12
   delay: 10
@@ -83,7 +88,7 @@
 
 # Now wait for the certificate to validate itself. This can take some time but it's usually pretty quick
 - name: Wait for certificate to be validated
-  command: aws acm describe-certificate --certificate-arn {{ certificate_arn }} --region {{ ec2_region }}
+  command: aws acm describe-certificate --certificate-arn {{ certificate_arn }} --region {{ certificate_region }}
   register: result
   retries: 180 # 30 mins. Hopefully it won't take this long!
   delay: 10

@@ -4,8 +4,35 @@ Ansible playbook to generate or get a certificate from AWS Amazon Certificate Ma
 
 * It assumes the Route53 zone for your domain exists in the current AWS account
 * Requires community.aws (ansible-galaxy collection install community.aws). This is for Route53
-* You must set ec2_region variable to the region you wish to use (e.g. eu-west-1)
-* You must set certificate_domain to the domain you wish to issue a certificate for (e.g. www.yoursite.com)
+* You must set certificate_region variable to the region you wish to use (e.g. eu-west-1)
+* You must set validation_domain to the domain you wish to use for validation (e.g. yoursite.com)
+* You must set certificate_domain to the domain you wish to issue a certificate for (e.g. api.yoursite.com)
+
+## Usage Example
+
+```
+- hosts: localhost
+  connection: local
+  gather_facts: False
+  vars_files:
+    - group_vars/all.yml
+  vars:
+    foo: "bar"
+  tasks:
+  - include: "roles/clusters/tasks/create-automation-resources.yml"
+
+  - name: Settings for regional ACM Certificate
+    set_fact:
+      certificate_region: "{{ ec2_region }}"
+      validation_domain: "{{ ec2_domain_name }}"
+      certificate_domain: "{{ my_vars.GUIDomainPrefix }}.{{ ec2_domain_name }}"
+  - include: "roles/clusters/tasks/get-acm-certificate.yml"
+  - name: Store regional certificate ARN
+    set_fact:
+      regional_certificate_arn: "{{ certificate_arn }}"
+
+  - include: "roles/clusters/tasks/mycluster.yml"
+```
 
 ## How it works
 
