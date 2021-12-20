@@ -19,7 +19,7 @@ Ansible playbook to generate or get a certificate from AWS Amazon Certificate Ma
   vars:
     foo: "bar"
   tasks:
-  - include: "roles/clusters/tasks/create-automation-resources.yml"
+  - include: "roles/clusters/tasks/foo-bar.yml"
 
   - name: Settings for regional ACM Certificate
     set_fact:
@@ -31,7 +31,7 @@ Ansible playbook to generate or get a certificate from AWS Amazon Certificate Ma
     set_fact:
       regional_certificate_arn: "{{ certificate_arn }}"
 
-  - include: "roles/clusters/tasks/mycluster.yml"
+  - include: "roles/clusters/tasks/baz-bat.yml"
 ```
 
 ## How it works
